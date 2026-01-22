@@ -1,16 +1,14 @@
-import { useEffect, useState, useRef } from "react";
-import { connect, StringCodec, type NatsConnection, type Subscription } from "nats.ws";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { connect, credsAuthenticator, StringCodec, type NatsConnection, type Subscription } from "nats.ws";
+import { useEffect, useRef, useState } from "react";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
   CartesianGrid,
-  Tooltip,
+  Line,
+  LineChart,
   ResponsiveContainer,
-  AreaChart,
-  Area,
+  Tooltip,
+  XAxis,
+  YAxis
 } from "recharts";
 
 interface TradingData {
@@ -22,7 +20,17 @@ interface TradingData {
 
 const MAX_DATA_POINTS = 100;
 
-export function TradingChart() {
+interface TradingChartProps {
+  credentials?: {
+    jwt: string;
+    nkeySeed: string;
+    nkeyPublic: string;
+    userId: string;
+    credsFile?: string;
+  };
+}
+
+export function TradingChart({ credentials }: TradingChartProps) {
   const [data, setData] = useState<TradingData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,12 +42,27 @@ export function TradingChart() {
   const sc = StringCodec();
 
   const connectNATS = async () => {
+    if (!credentials) {
+      setError("Authentication required. Please login first.");
+      return;
+    }
+
     try {
       const natsUrl = "ws://localhost:8080";
 
-      console.log(`Connecting to NATS at ${natsUrl}...`);
+      console.log(`Connecting to NATS at ${natsUrl} with JWT + NKey authentication...`);
+
+      // Use credsAuthenticator with the formatted credentials file
+      // If credsFile is provided, use it; otherwise format it from jwt and nkeySeed
+      const credsContent = credentials.credsFile
+
+      // Convert credentials string to Uint8Array for credsAuthenticator
+      const credsBytes = new TextEncoder().encode(credsContent);
+      const authenticator = credsAuthenticator(credsBytes);
+
       const nc = await connect({
         servers: natsUrl,
+        authenticator,
       });
 
       natsConnectionRef.current = nc;
@@ -64,8 +87,11 @@ export function TradingChart() {
 
               // Calculate price change
               if (updated.length > 1) {
-                const change = tradingData.price - updated[updated.length - 2]?.price;
-                setPriceChange(change);
+                const prevPrice = updated[updated.length - 2]?.price;
+                if (prevPrice !== undefined) {
+                  const change = tradingData.price - prevPrice;
+                  setPriceChange(change);
+                }
               }
 
               return updated;
@@ -110,7 +136,9 @@ export function TradingChart() {
   };
 
   useEffect(() => {
-    connectNATS();
+    if (credentials) {
+      connectNATS();
+    }
 
     return () => {
       if (reconnectTimeoutRef.current) {
@@ -126,7 +154,7 @@ export function TradingChart() {
         natsConnectionRef.current = null;
       }
     };
-  }, []);
+  }, [credentials]);
 
   // Format data for chart
   const chartData = data.map((item) => ({

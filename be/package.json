@@ -14,7 +14,10 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "jsonwebtoken": "^9.0.3",
     "nats": "^2.20.0",
-    "nats.ws": "^1.30.3"
+    "nats.ws": "^1.30.3",
+    "nkeys.js": "^1.1.0"
   }
 }

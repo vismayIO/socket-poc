@@ -1,6 +1,9 @@
 import { connect, StringCodec, type NatsConnection } from "nats";
+import { serve } from "bun";
+import { registerUser, authenticateUser, formatCredentialsFile } from "./auth";
 
 const NATS_URL = process.env.NATS_URL || "nats://localhost:4222";
+const PORT = parseInt(process.env.PORT || "3001");
 
 // Trading data structure
 interface TradingData {
@@ -68,10 +71,136 @@ async function startTradingFeed() {
   }, 5000); // Publish every second
 }
 
+// HTTP Server for authentication endpoints
+function startHTTPServer() {
+  serve({
+    port: PORT,
+    async fetch(req) {
+      const url = new URL(req.url);
+      
+      // CORS headers
+      const corsHeaders = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+
+      // Handle OPTIONS for CORS
+      if (req.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: corsHeaders });
+      }
+
+      // Register endpoint
+      if (url.pathname === "/api/auth/register" && req.method === "POST") {
+        try {
+          const body = await req.json();
+          const { username, password } = body as { username: string; password: string };
+
+          if (!username || !password) {
+            return Response.json(
+              { error: "Username and password are required" },
+              { status: 400, headers: corsHeaders }
+            );
+          }
+
+          const credentials = await registerUser(username, password);
+          const credsFile = formatCredentialsFile(credentials.jwt, credentials.nkeySeed.toBase64());
+
+          return Response.json(
+            {
+              success: true,
+              userId: credentials.userId,
+              jwt: credentials.jwt,
+              nkeySeed: credentials.nkeySeed,
+              nkeyPublic: credentials.nkeyPublic,
+              credsFile, // Formatted credentials file
+            },
+            { headers: corsHeaders }
+          );
+        } catch (error: any) {
+          return Response.json(
+            { error: error.message || "Registration failed" },
+            { status: 400, headers: corsHeaders }
+          );
+        }
+      }
+
+      // Login endpoint
+      if (url.pathname === "/api/auth/login" && req.method === "POST") {
+        try {
+          const body = await req.json();
+          const { username, password } = body as { username: string; password: string };
+
+          if (!username || !password) {
+            return Response.json(
+              { error: "Username and password are required" },
+              { status: 400, headers: corsHeaders }
+            );
+          }
+
+          const credentials = await authenticateUser(username, password);
+
+          if (!credentials) {
+            return Response.json(
+              { error: "Invalid username or password" },
+              { status: 401, headers: corsHeaders }
+            );
+          }
+
+          const credsFile = formatCredentialsFile(credentials.jwt, credentials.nkeySeed.toBase64());
+
+          return Response.json(
+            {
+              success: true,
+              userId: credentials.userId,
+              jwt: credentials.jwt,
+              nkeySeed: credentials.nkeySeed,
+              nkeyPublic: credentials.nkeyPublic,
+              credsFile, // Formatted credentials file
+            },
+            { headers: corsHeaders }
+          );
+        } catch (error: any) {
+          return Response.json(
+            { error: error.message || "Authentication failed" },
+            { status: 500, headers: corsHeaders }
+          );
+        }
+      }
+
+      // Health check
+      if (url.pathname === "/health" && req.method === "GET") {
+        return Response.json(
+          { status: "ok", natsConnected: natsConnection !== null },
+          { headers: corsHeaders }
+        );
+      }
+
+      // Manual trigger endpoint
+      if (url.pathname === "/api/trigger" && req.method === "POST") {
+        const data = generateTradingData();
+        await publishTradingData(data);
+        return Response.json(
+          { success: true, data },
+          { headers: corsHeaders }
+        );
+      }
+
+      return Response.json(
+        { error: "Not found" },
+        { status: 404, headers: corsHeaders }
+      );
+    },
+  });
+
+  console.log(`🌐 HTTP server running on http://localhost:${PORT}`);
+}
+
 // Initialize and start
 async function start() {
   await initNATS();
   startTradingFeed();
+  startHTTPServer();
   console.log(`📈 Trading data feed started for ${symbol}`);
 }
 
