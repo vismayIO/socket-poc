@@ -22,7 +22,7 @@ async function initNATS() {
     console.log(`Connecting to NATS at ${NATS_URL}...`);
     natsConnection = await connect({ servers: NATS_URL });
     console.log("✅ Connected to NATS");
-    
+
     natsConnection.closed().then(() => {
       console.log("NATS connection closed");
     });
@@ -36,7 +36,7 @@ async function initNATS() {
 // Publish trading data to NATS
 async function publishTradingData(data: TradingData) {
   if (!natsConnection) return;
-  
+
   try {
     const subject = "trading.data";
     const payload = sc.encode(JSON.stringify(data));
@@ -54,7 +54,7 @@ function generateTradingData(): TradingData {
   // Simulate price movement with random walk
   const change = (Math.random() - 0.5) * 2; // -1 to +1
   basePrice = Math.max(50, Math.min(200, basePrice + change));
-  
+
   return {
     timestamp: Date.now(),
     price: Math.round(basePrice * 100) / 100,
@@ -68,7 +68,7 @@ async function startTradingFeed() {
   setInterval(() => {
     const data = generateTradingData();
     publishTradingData(data);
-  }, 5000); // Publish every second
+  }, 500); // Publish every second
 }
 
 // HTTP Server for authentication endpoints
@@ -77,7 +77,7 @@ function startHTTPServer() {
     port: PORT,
     async fetch(req) {
       const url = new URL(req.url);
-      
+
       // CORS headers
       const corsHeaders = {
         "Access-Control-Allow-Origin": "*",

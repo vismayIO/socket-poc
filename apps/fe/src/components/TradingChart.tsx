@@ -1,15 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { connect, credsAuthenticator, StringCodec, type NatsConnection, type Subscription } from "nats.ws";
 import { useEffect, useRef, useState } from "react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from "recharts";
+import { createChart, ColorType, type IChartApi, type ISeriesApi, type Time, AreaSeries } from "lightweight-charts";
 
 interface TradingData {
   timestamp: number;
@@ -17,8 +9,6 @@ interface TradingData {
   volume: number;
   symbol: string;
 }
-
-const MAX_DATA_POINTS = 100;
 
 interface TradingChartProps {
   credentials?: {
@@ -31,15 +21,71 @@ interface TradingChartProps {
 }
 
 export function TradingChart({ credentials }: TradingChartProps) {
-  const [data, setData] = useState<TradingData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [priceChange, setPriceChange] = useState<number>(0);
+
   const natsConnectionRef = useRef<NatsConnection | null>(null);
   const subscriptionRef = useRef<Subscription | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
+
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
+
   const sc = StringCodec();
+
+  // Initialize Chart
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: '#333',
+      },
+      grid: {
+        vertLines: { color: '#f0f0f0' },
+        horzLines: { color: '#f0f0f0' },
+      },
+      width: chartContainerRef.current.clientWidth,
+      height: 400,
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: true,
+      },
+    });
+
+    const series = chart.addSeries(AreaSeries, {
+      lineColor: '#2962FF',
+      topColor: '#2962FF',
+      bottomColor: 'rgba(41, 98, 255, 0.28)',
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = series;
+
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Also use ResizeObserver for container resize not just window
+    const resizeObserver = new ResizeObserver(() => handleResize());
+    resizeObserver.observe(chartContainerRef.current);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
+      chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
+    };
+  }, []);
 
   const connectNATS = async () => {
     if (!credentials) {
@@ -49,14 +95,13 @@ export function TradingChart({ credentials }: TradingChartProps) {
 
     try {
       const natsUrl = "ws://localhost:8080";
-
       console.log(`Connecting to NATS at ${natsUrl} with JWT + NKey authentication...`);
 
-      // Use credsAuthenticator with the formatted credentials file
-      // If credsFile is provided, use it; otherwise format it from jwt and nkeySeed
-      const credsContent = credentials.credsFile
+      const credsContent = credentials.credsFile;
+      if (!credsContent) {
+        throw new Error("Credentials file content missing");
+      }
 
-      // Convert credentials string to Uint8Array for credsAuthenticator
       const credsBytes = new TextEncoder().encode(credsContent);
       const authenticator = credsAuthenticator(credsBytes);
 
@@ -70,7 +115,6 @@ export function TradingChart({ credentials }: TradingChartProps) {
       setError(null);
       console.log("✅ Connected to NATS");
 
-      // Subscribe to trading data
       const sub = nc.subscribe("trading.data");
       subscriptionRef.current = sub;
 
@@ -81,23 +125,28 @@ export function TradingChart({ credentials }: TradingChartProps) {
             const decoded = sc.decode(msg.data);
             const tradingData: TradingData = JSON.parse(decoded);
 
-            setData((prev) => {
-              const newData = [...prev, tradingData];
-              const updated = newData.slice(-MAX_DATA_POINTS); // Keep last 100 points
-
-              // Calculate price change
-              if (updated.length > 1) {
-                const prevPrice = updated[updated.length - 2]?.price;
-                if (prevPrice !== undefined) {
-                  const change = tradingData.price - prevPrice;
-                  setPriceChange(change);
-                }
+            // Update Price State
+            setCurrentPrice(prevPrice => {
+              if (prevPrice !== null) {
+                setPriceChange(tradingData.price - prevPrice);
               }
-
-              return updated;
+              return tradingData.price;
             });
 
-            setCurrentPrice(tradingData.price);
+            // Update Chart
+            if (seriesRef.current) {
+              // Ensure unique time. If we get multiple updates per second, lightweight-charts might complain if not handled carefully.
+              // Assuming NATS sends reasonable timestamps. 
+              // lightweight-charts needs seconds for Time (if using UNIX timestamp numbers).
+              // tradingData.timestamp is likely ms.
+
+              const time = (tradingData.timestamp / 1000) as Time;
+              seriesRef.current.update({
+                time: time,
+                value: tradingData.price
+              });
+            }
+
           } catch (err) {
             console.error("Error parsing message:", err);
           }
@@ -106,7 +155,6 @@ export function TradingChart({ credentials }: TradingChartProps) {
         console.error("Error in subscription loop:", err);
       });
 
-      // Handle connection close
       nc.closed().then(() => {
         console.log("NATS connection closed");
         setIsConnected(false);
@@ -128,7 +176,6 @@ export function TradingChart({ credentials }: TradingChartProps) {
 
       if (!reconnectTimeoutRef.current) {
         reconnectTimeoutRef.current = window.setTimeout(() => {
-          console.log("Attempting to reconnect to NATS...");
           connectNATS();
         }, 3000);
       }
@@ -155,14 +202,6 @@ export function TradingChart({ credentials }: TradingChartProps) {
       }
     };
   }, [credentials]);
-
-  // Format data for chart
-  const chartData = data.map((item) => ({
-    time: new Date(item.timestamp).toLocaleTimeString(),
-    price: item.price,
-    volume: item.volume,
-    timestamp: item.timestamp,
-  }));
 
   const formatPrice = (price: number) => {
     return `$${price.toFixed(2)}`;
@@ -217,52 +256,14 @@ export function TradingChart({ credentials }: TradingChartProps) {
             </div>
           )}
 
-          {data.length === 0 ? (
-            <div className="h-[500px] flex items-center justify-center">
-              <p className="text-muted-foreground">
-                Waiting for trading data...
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="h-[150px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                    <XAxis
-                      dataKey="time"
-                      stroke="#888888"
-                      fontSize={10}
-                      tick={{ fill: "#888888" }}
-                    />
-                    <YAxis
-                      stroke="#888888"
-                      fontSize={10}
-                      tick={{ fill: "#888888" }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "rgba(255, 255, 255, 0.95)",
-                        border: "1px solid #e0e0e0",
-                        borderRadius: "8px",
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="volume"
-                      stroke="#82ca9d"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+          <div className="h-[400px] w-full relative">
+            <div ref={chartContainerRef} className="absolute inset-0" />
+            {!isConnected && !currentPrice && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
+                <p className="text-muted-foreground">Waiting for connection...</p>
               </div>
-
-              <div className="text-sm text-muted-foreground text-center">
-                Showing {data.length} data point{data.length !== 1 ? "s" : ""}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
