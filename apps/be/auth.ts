@@ -1,17 +1,6 @@
 import { createUser, type KeyPair } from "nkeys.js";
 import jwt from "jsonwebtoken";
-
-// In-memory user store (replace with database in production)
-interface User {
-  id: string;
-  username: string;
-  password: string; // In production, use hashed passwords
-  nkeySeed: Uint8Array<ArrayBufferLike>;
-  nkeyPublic: string;
-  jwt: string;
-}
-
-const users = new Map<string, User>();
+import { insertUser, findUserByUsername, findUserById, type DBUser } from "./db";
 
 // JWT secret for signing user tokens
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
@@ -29,7 +18,7 @@ export function generateUserNKey(): KeyPair {
  */
 export function createNATSJWT(userId: string, username: string, nkeyPublic: string): string {
   const now = Math.floor(Date.now() / 1000);
-  
+
   // NATS JWT structure
   const claims = {
     jti: `${userId}-${now}`, // JWT ID
@@ -53,13 +42,34 @@ export function createNATSJWT(userId: string, username: string, nkeyPublic: stri
 }
 
 /**
+ * Hash password using Bun's native API
+ */
+async function hashPassword(password: string): Promise<string> {
+  return await Bun.password.hash(password, {
+    algorithm: "bcrypt",
+    cost: 10,
+  });
+}
+
+/**
+ * Verify password against hash
+ */
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return await Bun.password.verify(password, hash);
+}
+
+/**
  * Register a new user
  */
 export async function registerUser(username: string, password: string) {
   // Check if user already exists
-  if (Array.from(users.values()).some(u => u.username === username)) {
+  const existingUser = await findUserByUsername(username);
+  if (existingUser) {
     throw new Error("User already exists");
   }
+
+  // Hash password
+  const passwordHash = await hashPassword(password);
 
   // Generate NKey pair
   const nkeyPair = generateUserNKey();
@@ -72,17 +82,18 @@ export async function registerUser(username: string, password: string) {
   // Create JWT
   const userJwt = createNATSJWT(userId, username, nkeyPublic);
 
-  // Store user
-  const user:User = {
+  // Convert nkeySeed to base64 for storage
+  const nkeySeedBase64 = Buffer.from(nkeySeed).toString("base64");
+
+  // Store user in database
+  await insertUser({
     id: userId,
     username,
-    password, // In production, hash this
-    nkeySeed,
-    nkeyPublic,
-    jwt: userJwt
-  };
-
-  users.set(userId, user);
+    password_hash: passwordHash,
+    nkey_seed: nkeySeedBase64,
+    nkey_public: nkeyPublic,
+    jwt: userJwt,
+  });
 
   return {
     userId,
@@ -96,31 +107,40 @@ export async function registerUser(username: string, password: string) {
  * Authenticate a user and return credentials
  */
 export async function authenticateUser(username: string, password: string) {
-  const user = Array.from(users.values()).find(u => u.username === username);
-  
-  if (!user || user.password !== password) {
+  const user = await findUserByUsername(username);
+
+  if (!user) {
     return null;
   }
+
+  // Verify password
+  const isValid = await verifyPassword(password, user.password_hash);
+  if (!isValid) {
+    return null;
+  }
+
+  // Convert nkeySeed back from base64
+  const nkeySeed = new Uint8Array(Buffer.from(user.nkey_seed, "base64"));
 
   return {
     userId: user.id,
     jwt: user.jwt,
-    nkeySeed: user.nkeySeed,
-    nkeyPublic: user.nkeyPublic
+    nkeySeed,
+    nkeyPublic: user.nkey_public
   };
 }
 
 /**
  * Get user by ID
  */
-export function getUserById(userId: string): User | undefined {
-  return users.get(userId);
+export async function getUserById(userId: string): Promise<DBUser | null> {
+  return await findUserById(userId);
 }
 
 /**
  * Format credentials file content (NATS format)
  */
-export function formatCredentialsFile(jwt: string, nkeySeed:  string): string {
+export function formatCredentialsFile(jwt: string, nkeySeed: string): string {
   return `-----BEGIN NATS USER JWT-----
 ${jwt}
 ------END NATS USER JWT------
@@ -134,3 +154,4 @@ ${atob(nkeySeed)}
 ------END USER NKEY SEED------
 `;
 }
+

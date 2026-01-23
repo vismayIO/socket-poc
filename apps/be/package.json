@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@types/jsonwebtoken": "^9.0.10",
+    "duckdb": "^1.4.3",
     "jsonwebtoken": "^9.0.3",
     "nats": "^2.20.0",
     "nats.ws": "^1.30.3",

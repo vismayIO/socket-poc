@@ -1,6 +1,7 @@
 import { connect, StringCodec, type NatsConnection } from "nats";
 import { serve } from "bun";
 import { registerUser, authenticateUser, formatCredentialsFile } from "./auth";
+import { initDatabase, insertTradingData, getAllTradingData, getRecentTradingData } from "./db";
 
 const NATS_URL = process.env.NATS_URL || "nats://localhost:4222";
 const PORT = parseInt(process.env.PORT || "3001");
@@ -33,8 +34,16 @@ async function initNATS() {
   }
 }
 
-// Publish trading data to NATS
+// Publish trading data to NATS and store in DuckDB
 async function publishTradingData(data: TradingData) {
+  // Store in DuckDB
+  try {
+    await insertTradingData(data);
+  } catch (error) {
+    console.error("Error storing trading data in DuckDB:", error);
+  }
+
+  // Publish to NATS
   if (!natsConnection) return;
 
   try {
@@ -68,7 +77,7 @@ async function startTradingFeed() {
   setInterval(() => {
     const data = generateTradingData();
     publishTradingData(data);
-  }, 500); // Publish every second
+  }, 500); // Publish every 500ms
 }
 
 // HTTP Server for authentication endpoints
@@ -168,6 +177,32 @@ function startHTTPServer() {
         }
       }
 
+      // Trading history endpoint
+      if (url.pathname === "/api/trading/history" && req.method === "GET") {
+        try {
+          const symbolParam = url.searchParams.get("symbol");
+          const limitParam = url.searchParams.get("limit");
+          const limit = limitParam ? parseInt(limitParam) : 100;
+
+          let data;
+          if (symbolParam) {
+            data = await getRecentTradingData(symbolParam, limit);
+          } else {
+            data = await getAllTradingData(limit);
+          }
+
+          return Response.json(
+            { success: true, count: data.length, data },
+            { headers: corsHeaders }
+          );
+        } catch (error: any) {
+          return Response.json(
+            { error: error.message || "Failed to fetch trading history" },
+            { status: 500, headers: corsHeaders }
+          );
+        }
+      }
+
       // Health check
       if (url.pathname === "/health" && req.method === "GET") {
         return Response.json(
@@ -198,6 +233,9 @@ function startHTTPServer() {
 
 // Initialize and start
 async function start() {
+  // Initialize DuckDB first
+  await initDatabase();
+
   await initNATS();
   startTradingFeed();
   startHTTPServer();
