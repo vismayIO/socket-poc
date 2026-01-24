@@ -1,96 +1,85 @@
 import { connect, type NatsConnection, type Msg, StringCodec } from "nats";
-import { SignJWT, base64url } from "jose";
+import { base64url } from "jose";
 import { auth } from "../auth";
-import { getIssuerKeyPair, getXKeyPair, getPublicKey, sign } from "./nkeys";
+import { getIssuerKeyPair, getPublicKey, sign } from "./nkeys";
 
 const sc = StringCodec();
 
-interface AuthRequest {
-  server_id: {
-    name: string;
-    host: string;
-    id: string;
-  };
-  user_nkey: string;
-  client_info: {
-    host: string;
-    id: number;
-    user: string;
-    name: string;
-    lang: string;
-    version: string;
-  };
-  connect_opts: {
-    protocol: number;
-    name?: string;
-    user?: string;
-    pass?: string;
-    auth_token?: string;
-    tls_required?: boolean;
-    jwt?: string;
-  };
-}
-
-interface UserClaims {
-  jti: string;
-  iat: number;
+interface AuthRequestPayload {
   iss: string;
-  name: string;
   sub: string;
   nats: {
-    pub: { allow?: string[]; deny?: string[] };
-    sub: { allow?: string[]; deny?: string[] };
-    resp?: { max: number };
-    subs: number;
-    data: number;
-    payload: number;
+    server_id: {
+      name: string;
+      host: string;
+      id: string;
+    };
+    user_nkey: string;
+    client_info: {
+      host: string;
+      id: number;
+      user: string;
+      name: string;
+      lang: string;
+      version: string;
+    };
+    connect_opts: {
+      protocol: number;
+      name?: string;
+      user?: string;
+      pass?: string;
+      auth_token?: string;
+      tls_required?: boolean;
+      jwt?: string;
+    };
     type: string;
     version: number;
-    issuer_account?: string;
   };
 }
 
 /**
- * Create a NATS User JWT for authenticated users
+ * Create a signed user JWT for the auth callout response
+ * For non-operator mode, the JWT needs:
+ * - iss: the issuer (our account key that matches the auth_callout config)
+ * - sub: the user's nkey
+ * - aud: the target account name (e.g., "APP")
  */
-function createUserJwt(
+function createSignedUserJwt(
   userNkey: string,
-  userId: string,
   userName: string,
-  issuerKeyPair: ReturnType<typeof getIssuerKeyPair>,
-  accountPublicKey: string
+  targetAccount: string,
+  issuerKeyPair: ReturnType<typeof getIssuerKeyPair>
 ): string {
   const now = Math.floor(Date.now() / 1000);
-  
-  const claims: UserClaims = {
+  const issuerPublicKey = getPublicKey(issuerKeyPair);
+
+  const claims = {
     jti: crypto.randomUUID(),
     iat: now,
-    iss: accountPublicKey,
-    name: userName,
+    iss: issuerPublicKey,
     sub: userNkey,
+    aud: targetAccount, // Target account name for non-operator mode
+    name: userName,
     nats: {
-      pub: { allow: [">"] },  // Allow publishing to all subjects
-      sub: { allow: [">"] },  // Allow subscribing to all subjects
+      pub: { allow: [">"] },
+      sub: { allow: [">"] },
       resp: { max: 1 },
-      subs: -1,          // Unlimited subscriptions
-      data: -1,          // Unlimited data
-      payload: -1,       // Unlimited payload
+      subs: -1,
+      data: -1,
+      payload: -1,
       type: "user",
       version: 2,
-      issuer_account: accountPublicKey,
     },
   };
 
-  // Encode header and payload
   const header = { typ: "JWT", alg: "ed25519-nkey" };
   const headerB64 = base64url.encode(JSON.stringify(header));
   const payloadB64 = base64url.encode(JSON.stringify(claims));
-  
-  // Sign with issuer keypair
+
   const signingInput = `${headerB64}.${payloadB64}`;
   const signature = sign(issuerKeyPair, new TextEncoder().encode(signingInput));
   const signatureB64 = base64url.encode(signature);
-  
+
   return `${headerB64}.${payloadB64}.${signatureB64}`;
 }
 
@@ -107,43 +96,50 @@ function createAuthResponse(
   const now = Math.floor(Date.now() / 1000);
   const issuerPublicKey = getPublicKey(issuerKeyPair);
 
+  const natsPayload: Record<string, unknown> = {
+    type: "authorization_response",
+    version: 2,
+  };
+
+  if (error) {
+    natsPayload.error = error;
+  } else if (userJwt) {
+    natsPayload.jwt = userJwt;
+  }
+
   const claims = {
     jti: crypto.randomUUID(),
     iat: now,
     iss: issuerPublicKey,
     sub: userNkey,
     aud: serverPublicKey,
-    nats: {
-      type: "authorization_response",
-      version: 2,
-      ...(userJwt ? { jwt: userJwt } : {}),
-      ...(error ? { error } : {}),
-    },
+    nats: natsPayload,
   };
 
   const header = { typ: "JWT", alg: "ed25519-nkey" };
   const headerB64 = base64url.encode(JSON.stringify(header));
   const payloadB64 = base64url.encode(JSON.stringify(claims));
-  
+
   const signingInput = `${headerB64}.${payloadB64}`;
   const signature = sign(issuerKeyPair, new TextEncoder().encode(signingInput));
   const signatureB64 = base64url.encode(signature);
-  
+
   return `${headerB64}.${payloadB64}.${signatureB64}`;
 }
 
 /**
  * Validate Better Auth token and return user info
  */
-async function validateBetterAuthToken(token: string): Promise<{ userId: string; userName: string } | null> {
+async function validateBetterAuthToken(
+  token: string
+): Promise<{ userId: string; userName: string } | null> {
   try {
-    // Use Better Auth's session validation
     const session = await auth.api.getSession({
       headers: new Headers({
         Authorization: `Bearer ${token}`,
       }),
     });
-    
+
     if (session?.user) {
       return {
         userId: session.user.id,
@@ -179,9 +175,7 @@ export async function startAuthCalloutService(): Promise<NatsConnection> {
   const issuerKeyPair = getIssuerKeyPair();
   const issuerPublicKey = getPublicKey(issuerKeyPair);
 
-  // Subscribe to auth callout requests
   const sub = nc.subscribe("$SYS.REQ.USER.AUTH");
-  
   console.log("🔐 Listening for auth callout requests on $SYS.REQ.USER.AUTH");
 
   (async () => {
@@ -205,43 +199,33 @@ async function handleAuthRequest(
   issuerKeyPair: ReturnType<typeof getIssuerKeyPair>,
   issuerPublicKey: string
 ): Promise<void> {
-  // The request comes as a JWT - we need to decode it
   const requestData = sc.decode(msg.data);
-  
-  // Parse the request JWT (simplified - just extract payload)
   const parts = requestData.split(".");
+  
   if (parts.length !== 3) {
     console.error("Invalid auth request format");
     return;
   }
 
-  const payloadJson = new TextDecoder().decode(base64url.decode(parts[1]));
-  const payload = JSON.parse(payloadJson);
-  
-  // Extract the nested authorization request
-  const authRequestJwt = payload.nats?.authorization_request;
-  if (!authRequestJwt) {
-    // Fallback: check if the data itself contains the request
-    console.log("Auth request payload:", JSON.stringify(payload, null, 2));
+  let payload: AuthRequestPayload;
+  try {
+    const payloadJson = new TextDecoder().decode(base64url.decode(parts[1]));
+    payload = JSON.parse(payloadJson);
+  } catch (e) {
+    console.error("Failed to parse auth request payload:", e);
+    return;
   }
 
-  // Get server ID from the request
   const serverPublicKey = payload.iss || "";
-  
-  // Extract auth request data from the connect_opts
-  const authRequest: AuthRequest = payload.nats || payload;
-  const userNkey = authRequest.user_nkey || payload.sub || "";
-  const connectOpts = authRequest.connect_opts || {};
-  
-  // Get the auth token from password or auth_token field
+  const userNkey = payload.nats?.user_nkey || payload.sub || "";
+  const connectOpts = payload.nats?.connect_opts || {};
   const token = connectOpts.pass || connectOpts.auth_token || "";
-  
+
   console.log(`🔐 Auth request for user: ${connectOpts.user || "unknown"}`);
 
   let responseJwt: string;
 
   if (!token) {
-    // No token provided - reject
     console.log("🔐 Auth rejected: no token provided");
     responseJwt = createAuthResponse(
       serverPublicKey,
@@ -251,18 +235,16 @@ async function handleAuthRequest(
       issuerKeyPair
     );
   } else {
-    // Validate token with Better Auth
     const userInfo = await validateBetterAuthToken(token);
-    
+
     if (userInfo) {
-      // Create user JWT with permissions
       console.log(`🔐 Auth approved for: ${userInfo.userName}`);
-      const userJwt = createUserJwt(
+      // Create user JWT with "APP" as the target account
+      const userJwt = createSignedUserJwt(
         userNkey,
-        userInfo.userId,
         userInfo.userName,
-        issuerKeyPair,
-        issuerPublicKey
+        "APP", // Target account name from nats.conf
+        issuerKeyPair
       );
       responseJwt = createAuthResponse(
         serverPublicKey,
@@ -272,7 +254,6 @@ async function handleAuthRequest(
         issuerKeyPair
       );
     } else {
-      // Invalid token
       console.log("🔐 Auth rejected: invalid token");
       responseJwt = createAuthResponse(
         serverPublicKey,
@@ -284,7 +265,6 @@ async function handleAuthRequest(
     }
   }
 
-  // Send response
   if (msg.reply) {
     msg.respond(sc.encode(responseJwt));
   }
@@ -293,7 +273,9 @@ async function handleAuthRequest(
 /**
  * Stop the auth callout service
  */
-export async function stopAuthCalloutService(nc: NatsConnection): Promise<void> {
+export async function stopAuthCalloutService(
+  nc: NatsConnection
+): Promise<void> {
   await nc.drain();
   console.log("🔐 Auth callout service disconnected");
 }
