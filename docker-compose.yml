@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+
+  nats:
+    image: nats:latest
+    container_name: nats-server
+    command: ["-c", "/container/nats.conf"]
+    restart: always
+    ports:
+      - "4222:4222" # Client connections
+      - "8222:8222" # Monitoring
+      - "8080:8080" # HTTP / custom
+    volumes:
+      - ./:/container
+volumes:
+  pgdata:

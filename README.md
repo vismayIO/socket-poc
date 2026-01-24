@@ -1,112 +1,135 @@
-# NATS Real-time POC
+# Turborepo starter
 
-A Proof of Concept demonstrating real-time data updates using NATS messaging system with direct NATS WebSocket client on the frontend.
+This Turborepo starter is maintained by the Turborepo core team.
 
-## Architecture
+## Using this example
 
-- **Backend (Bun)**: Connects to NATS and publishes data updates to NATS subjects
-- **Frontend (React)**: Connects directly to NATS server using `nats.ws` WebSocket client and subscribes to updates
+Run the following command:
 
-## Prerequisites
-
-- [Bun](https://bun.sh) installed
-- NATS server with WebSocket support enabled (see setup below)
-
-## Quick Start
-
-### 1. Start NATS Server with WebSocket Support
-
-```bash
-# Using Docker (recommended)
-docker run -d --name nats-server -v ./:/container   -p 4222:4222   -p 8222:8222   -p 8080:8080   nats:latest -c /container/nats.conf
-
-# Or install locally and run with WebSocket
-nats-server -ws 8080
+```sh
+npx create-turbo@latest
 ```
 
-**Important**: The `-ws 8080` flag enables WebSocket support on port 8080, which is required for browser clients.
+## What's inside?
 
-### 2. Start Backend
+This Turborepo includes the following packages/apps:
 
-```bash
-cd be
-bun install
-bun run dev
-```
+### Apps and Packages
 
-The backend will:
-- Connect to NATS server at `nats://localhost:4222`
-- Publish data updates every 2 seconds to `data.updates` subject
-- Run on `http://localhost:3001` (for manual trigger endpoint)
+- `docs`: a [Next.js](https://nextjs.org/) app
+- `web`: another [Next.js](https://nextjs.org/) app
+- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
+- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
+- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
 
-### 3. Start Frontend
+Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
 
-```bash
-cd fe
-bun install
-bun run dev
-```
+### Utilities
 
-The frontend will:
-- Connect directly to NATS server via WebSocket at `ws://localhost:8080`
-- Subscribe to `data.updates` subject
-- Display real-time updates in the UI
+This Turborepo has some additional tools already setup for you:
 
-## How It Works
+- [TypeScript](https://www.typescriptlang.org/) for static type checking
+- [ESLint](https://eslint.org/) for code linting
+- [Prettier](https://prettier.io) for code formatting
 
-1. **Backend** connects to NATS server (standard TCP connection on port 4222)
-2. **Backend** publishes data updates every 2 seconds to NATS subject `data.updates`
-3. **Frontend** connects directly to NATS server using WebSocket (port 8080) via `nats.ws` client
-4. **Frontend** subscribes to `data.updates` subject and receives messages in real-time
-5. **Frontend** displays updates in a live feed
+### Build
 
-## Features
-
-- ✅ Real-time data updates via NATS
-- ✅ Direct NATS WebSocket client on frontend (no proxy needed)
-- ✅ Automatic reconnection on disconnect
-- ✅ Manual trigger endpoint for testing
-- ✅ Health check endpoint
-- ✅ Modern React UI with Tailwind CSS
-
-## Project Structure
+To build all apps and packages, run the following command:
 
 ```
-socket-poc/
-├── be/                 # Backend (Bun + NATS)
-│   ├── index.ts        # Main server code - publishes to NATS
-│   └── package.json
-├── fe/                 # Frontend (React + nats.ws)
-│   ├── src/
-│   │   ├── App.tsx
-│   │   └── components/
-│   │       └── RealtimeData.tsx  # NATS WebSocket client
-│   └── package.json
-└── README.md
+cd my-turborepo
+
+# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
+turbo build
+
+# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
+npx turbo build
+yarn dlx turbo build
+pnpm exec turbo build
 ```
 
-## Environment Variables
+You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
 
-### Backend
+```
+# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
+turbo build --filter=docs
 
-- `NATS_URL` - NATS server URL (default: `nats://localhost:4222`)
-- `PORT` - Backend server port (default: `3001`)
+# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
+npx turbo build --filter=docs
+yarn exec turbo build --filter=docs
+pnpm exec turbo build --filter=docs
+```
 
-### Frontend
+### Develop
 
-- `VITE_NATS_URL` - NATS WebSocket URL (default: `ws://localhost:8080`)
-- `VITE_BACKEND_URL` - Backend API URL for manual trigger (default: `http://localhost:3001`)
+To develop all apps and packages, run the following command:
 
-## Ports
+```
+cd my-turborepo
 
-- **4222**: NATS standard TCP port (backend connection)
-- **8080**: NATS WebSocket port (frontend connection)
-- **8222**: NATS monitoring port (optional)
-- **3001**: Backend HTTP server (for manual trigger endpoint)
+# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
+turbo dev
 
-## Learn More
+# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
+npx turbo dev
+yarn exec turbo dev
+pnpm exec turbo dev
+```
 
-- [NATS Documentation](https://docs.nats.io/)
-- [NATS WebSocket](https://docs.nats.io/using-nats/developer/connecting/websocket)
-- [Bun Documentation](https://bun.sh/docs)
-- [React Documentation](https://react.dev/)
+You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+
+```
+# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
+turbo dev --filter=web
+
+# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
+npx turbo dev --filter=web
+yarn exec turbo dev --filter=web
+pnpm exec turbo dev --filter=web
+```
+
+### Remote Caching
+
+> [!TIP]
+> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+
+Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+
+By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+
+```
+cd my-turborepo
+
+# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
+turbo login
+
+# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
+npx turbo login
+yarn exec turbo login
+pnpm exec turbo login
+```
+
+This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+
+Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+
+```
+# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
+turbo link
+
+# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
+npx turbo link
+yarn exec turbo link
+pnpm exec turbo link
+```
+
+## Useful Links
+
+Learn more about the power of Turborepo:
+
+- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
+- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
+- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
+- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
+- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
+- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
