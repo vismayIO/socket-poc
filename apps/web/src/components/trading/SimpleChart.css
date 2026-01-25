@@ -1,0 +1,184 @@
+.simple-chart {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #dee2e6;
+  background: #f8f9fa;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chart-header h3 {
+  margin: 0;
+  color: #495057;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.chart-info {
+  font-size: 0.85em;
+  color: #6c757d;
+  font-family: 'Courier New', monospace;
+}
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.chart-type-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-type-selector label {
+  font-size: 0.85em;
+  font-weight: 500;
+  color: #495057;
+}
+
+.chart-type-selector select {
+  padding: 6px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background: white;
+  font-size: 0.85em;
+}
+
+.refresh-button {
+  padding: 6px 10px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background-color 0.2s ease;
+}
+
+.refresh-button:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.refresh-button:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.chart-loading, .chart-error, .chart-no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #6c757d;
+  font-size: 1.1em;
+}
+
+.chart-error {
+  color: #dc3545;
+}
+
+.chart-container {
+  padding: 20px;
+  position: relative;
+}
+
+/* Volume Chart */
+.volume-chart {
+  border-top: 1px solid #dee2e6;
+  padding: 10px 20px;
+  background: #f8f9fa;
+}
+
+.volume-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 60px;
+  justify-content: space-between;
+}
+
+.volume-bar {
+  flex: 1;
+  min-width: 2px;
+  border-radius: 1px 1px 0 0;
+  transition: opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.volume-bar:hover {
+  opacity: 0.8 !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .chart-controls {
+    align-self: stretch;
+    justify-content: space-between;
+  }
+  
+  .chart-type-selector {
+    flex: 1;
+  }
+  
+  .chart-type-selector select {
+    flex: 1;
+  }
+  
+  .chart-container {
+    padding: 15px;
+  }
+  
+  .volume-chart {
+    padding: 8px 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chart-header {
+    padding: 12px 15px;
+  }
+  
+  .chart-controls {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .chart-type-selector,
+  .refresh-button {
+    width: 100%;
+  }
+  
+  .chart-container {
+    padding: 12px;
+  }
+  
+  .volume-chart {
+    padding: 6px 12px;
+  }
+  
+  .volume-bars {
+    height: 40px;
+  }
+}

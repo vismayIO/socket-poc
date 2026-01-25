@@ -1,0 +1,250 @@
+.price-ticker {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ticker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #dee2e6;
+  background: #f8f9fa;
+}
+
+.ticker-header h3 {
+  margin: 0;
+  color: #495057;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.last-update {
+  font-size: 0.85em;
+  color: #6c757d;
+  font-family: 'Courier New', monospace;
+}
+
+.ticker-content {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 30px;
+}
+
+.ticker-loading, .ticker-error, .ticker-no-data {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #6c757d;
+  font-size: 1.1em;
+}
+
+.ticker-error {
+  color: #dc3545;
+}
+
+/* Price Section */
+.price-section {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+}
+
+.main-price {
+  text-align: center;
+}
+
+.price-value {
+  font-size: 2.5em;
+  font-weight: 700;
+  color: #495057;
+  font-family: 'Courier New', monospace;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.price-value.up {
+  color: #28a745;
+  transform: scale(1.05);
+}
+
+.price-value.down {
+  color: #dc3545;
+  transform: scale(1.05);
+}
+
+.price-change {
+  font-size: 1.1em;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.price-change.positive {
+  color: #28a745;
+}
+
+.price-change.negative {
+  color: #dc3545;
+}
+
+/* Bid-Ask Section */
+.bid-ask-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.bid-ask-item, .spread-indicator {
+  text-align: center;
+  min-width: 80px;
+}
+
+.bid-ask-item .label, .spread-indicator .label {
+  font-size: 0.8em;
+  color: #6c757d;
+  font-weight: 500;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.bid-ask-item .value, .spread-indicator .value {
+  font-size: 1.1em;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.bid-price {
+  color: #28a745;
+}
+
+.ask-price {
+  color: #dc3545;
+}
+
+.spread-indicator .value {
+  color: #495057;
+}
+
+/* Stats Section */
+.stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-width: 120px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+}
+
+.stat-label {
+  font-size: 0.85em;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 0.95em;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  color: #495057;
+}
+
+.high-price {
+  color: #28a745;
+}
+
+.low-price {
+  color: #dc3545;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .ticker-content {
+    flex-direction: column;
+    gap: 20px;
+    align-items: stretch;
+  }
+  
+  .price-section {
+    justify-content: center;
+    gap: 30px;
+  }
+  
+  .stats-section {
+    flex-direction: row;
+    justify-content: space-around;
+  }
+}
+
+@media (max-width: 768px) {
+  .ticker-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .ticker-content {
+    padding: 15px;
+    gap: 15px;
+  }
+  
+  .price-section {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .price-value {
+    font-size: 2em;
+  }
+  
+  .bid-ask-section {
+    gap: 15px;
+    padding: 12px;
+  }
+  
+  .stats-section {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .stat-item {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .price-value {
+    font-size: 1.8em;
+  }
+  
+  .bid-ask-section {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .bid-ask-item, .spread-indicator {
+    min-width: auto;
+    width: 100%;
+  }
+}

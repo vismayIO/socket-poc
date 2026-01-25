@@ -88,3 +88,64 @@ model Jwks {
 
   @@map("jwks")
 }
+
+model StockTrade {
+  id             String   @id @default(cuid())
+  symbol         String
+  price          Float
+  quantity       Int
+  side           String
+  timestamp      DateTime @default(now())
+  orderId        String?
+  tradeType      String   @default("MARKET")
+  executionVenue String?
+
+  @@index([symbol, timestamp])
+  @@index([timestamp])
+  @@map("stock_trade")
+}
+
+model OrderBookSnapshot {
+  id         Int      @id @default(autoincrement())
+  symbol     String
+  side       String // "BUY" or "SELL"
+  price      Float
+  quantity   Int
+  orderCount Int      @default(1)
+  timestamp  DateTime @default(now())
+
+  @@index([symbol, timestamp])
+  @@index([symbol, side, price])
+  @@map("order_book_snapshot")
+}
+
+model OhlcvData {
+  id           Int      @id @default(autoincrement())
+  symbol       String
+  intervalType String // "1s", "1m", "5m", "1h", "1d"
+  timestamp    DateTime
+  openPrice    Float
+  highPrice    Float
+  lowPrice     Float
+  closePrice   Float
+  volume       BigInt
+  tradeCount   Int      @default(0)
+
+  @@unique([symbol, intervalType, timestamp])
+  @@index([symbol, intervalType, timestamp])
+  @@map("ohlcv_data")
+}
+
+model SymbolConfig {
+  symbol        String   @id
+  basePrice     Float
+  volatility    Float    @default(0.02)
+  trendStrength Float    @default(0.0)
+  minSpread     Float    @default(0.01)
+  maxSpread     Float    @default(0.05)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("symbol_config")
+}

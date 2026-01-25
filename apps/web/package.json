@@ -10,9 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "^1.33.1-dev18.0",
     "better-auth": "^1.4.17",
+    "chart.js": "^4.5.1",
+    "chartjs-adapter-date-fns": "^3.0.0",
     "nats.ws": "^1.30.3",
     "react": "^19.2.0",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
