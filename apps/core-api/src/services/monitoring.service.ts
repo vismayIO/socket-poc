@@ -486,7 +486,7 @@ export class MonitoringService extends EventEmitter {
       // Import dynamically to avoid circular dependencies
       const { natsStreamingService } =
         await import("../routes/websocket.routes");
-      const isConnected = natsStreamingService.isConnected();
+      const isConnected = natsStreamingService.checkConnected();
 
       return {
         name: "nats",

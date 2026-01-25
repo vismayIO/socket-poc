@@ -5,6 +5,10 @@ import {
   JetStreamClient,
   StringCodec,
   JSONCodec,
+  RetentionPolicy,
+  StorageType,
+  DiscardPolicy,
+  consumerOpts,
 } from "nats";
 
 export interface StreamingConfig {
@@ -27,10 +31,11 @@ export class NatsStreamingService {
   private jetStreamManager?: JetStreamManager;
   private jetStreamClient?: JetStreamClient;
   private config: StreamingConfig;
-  private isConnected = false;
+  private _isConnected = false;
   private reconnectAttempts = 0;
   private stringCodec = StringCodec();
   private jsonCodec = JSONCodec();
+  private useJetStream = true; // Flag to track if JetStream is available
 
   // Stream and subject configurations
   private readonly STREAMS = {
@@ -72,19 +77,32 @@ export class NatsStreamingService {
         this.connections.push(connection);
       }
 
-      // Use first connection for JetStream management
-      const primaryConnection = this.connections[0];
-      this.jetStreamManager = await primaryConnection.jetstreamManager();
-      this.jetStreamClient = primaryConnection.jetstream();
+      // Try to initialize JetStream (may fail due to permissions)
+      try {
+        const primaryConnection = this.connections[0];
+        this.jetStreamManager = await primaryConnection.jetstreamManager();
+        this.jetStreamClient = primaryConnection.jetstream();
 
-      // Setup streams
-      await this.setupStreams();
+        // Setup streams
+        await this.setupStreams();
+        console.log("JetStream initialized successfully");
+      } catch (jsError: any) {
+        // Handle JetStream permission errors gracefully
+        if (jsError?.code === "503" || jsError?.message?.includes("503") || jsError?.message?.includes("No Responders")) {
+          console.warn("⚠️ JetStream not available (likely permission issue), using simple pub/sub");
+          this.useJetStream = false;
+          this.jetStreamManager = undefined;
+          this.jetStreamClient = undefined;
+        } else {
+          throw jsError;
+        }
+      }
 
-      this.isConnected = true;
+      this._isConnected = true;
       this.reconnectAttempts = 0;
 
       console.log(
-        `NATS streaming service initialized with ${this.connections.length} connections`,
+        `NATS streaming service initialized with ${this.connections.length} connections (JetStream: ${this.useJetStream ? 'enabled' : 'disabled'})`,
       );
     } catch (error) {
       console.error("Failed to initialize NATS streaming service:", error);
@@ -102,9 +120,10 @@ export class NatsStreamingService {
       maxReconnectAttempts: this.config.maxReconnectAttempts,
       reconnectTimeWait: this.config.reconnectTimeWait,
       name: `market-data-api-${Date.now()}`,
-      // Add authentication for NATS connection
-      user: process.env.NATS_AUTH_USER || "auth",
-      pass: process.env.NATS_AUTH_PASS || "auth",
+      // Use APP account credentials for internal API service
+      // This user has permissions for JetStream operations
+      user: process.env.NATS_API_USER || "api_service",
+      pass: process.env.NATS_API_PASS || "api_service_secret",
     });
 
     // Setup connection event handlers
@@ -138,13 +157,13 @@ export class NatsStreamingService {
           `${this.SUBJECTS.ORDER_BOOK}.*`,
           `${this.SUBJECTS.OHLCV}.*`,
         ],
-        retention: "limits",
+        retention: RetentionPolicy.Limits,
         max_age: 24 * 60 * 60 * 1000 * 1000000, // 24 hours in nanoseconds
         max_msgs: 1000000, // 1M messages max
         max_bytes: 1024 * 1024 * 1024, // 1GB max
-        storage: "memory", // Use memory storage for high performance
-        replicas: 1,
-        discard: "old",
+        storage: StorageType.Memory, // Use memory storage for high performance
+        num_replicas: 1,
+        discard: DiscardPolicy.Old,
       });
 
       console.log("JetStream streams configured successfully");
@@ -163,7 +182,7 @@ export class NatsStreamingService {
    * Publish market data message to appropriate stream
    */
   async publishMarketData(message: MarketDataMessage): Promise<void> {
-    if (!this.isConnected || !this.jetStreamClient) {
+    if (!this._isConnected || this.connections.length === 0) {
       throw new Error("NATS streaming service not connected");
     }
 
@@ -176,11 +195,17 @@ export class NatsStreamingService {
         Math.random() * this.connections.length,
       );
       const connection = this.connections[connectionIndex];
-      const js = connection.jetstream();
 
-      await js.publish(subject, data, {
-        msgID: `${message.symbol}-${message.type}-${Date.now()}`,
-      });
+      if (this.useJetStream && this.jetStreamClient) {
+        // Use JetStream if available
+        const js = connection.jetstream();
+        await js.publish(subject, data, {
+          msgID: `${message.symbol}-${message.type}-${Date.now()}`,
+        });
+      } else {
+        // Fall back to simple pub/sub
+        connection.publish(subject, data);
+      }
     } catch (error) {
       console.error("Failed to publish market data:", error);
       throw error;
@@ -254,7 +279,7 @@ export class NatsStreamingService {
     callback: (message: MarketDataMessage) => void,
     filterSymbols?: string[],
   ): Promise<void> {
-    if (!this.isConnected || !this.jetStreamClient) {
+    if (!this._isConnected || this.connections.length === 0) {
       throw new Error("NATS streaming service not connected");
     }
 
@@ -267,18 +292,27 @@ export class NatsStreamingService {
         `${this.SUBJECTS.OHLCV}.*`,
       ];
 
-      for (const subject of subjects) {
-        const subscription = await this.jetStreamClient.subscribe(subject, {
-          durable_name: `market-data-consumer-${Date.now()}`,
-          deliver_policy: "new",
-          ack_policy: "explicit",
-        });
+      const primaryConnection = this.connections[0];
 
-        // Process messages in background
-        this.processSubscription(subscription, callback, filterSymbols);
+      if (this.useJetStream && this.jetStreamClient) {
+        // Use JetStream subscriptions if available
+        for (const subject of subjects) {
+          const opts = consumerOpts();
+          opts.durable(`market-data-consumer-${Date.now()}`);
+          opts.deliverNew();
+          opts.ackExplicit();
+          const subscription = await this.jetStreamClient.subscribe(subject, opts);
+          this.processSubscription(subscription, callback, filterSymbols);
+        }
+      } else {
+        // Fall back to simple subscriptions
+        for (const subject of subjects) {
+          const sub = primaryConnection.subscribe(subject);
+          this.processSimpleSubscription(sub, callback, filterSymbols);
+        }
       }
 
-      console.log("Subscribed to market data streams");
+      console.log(`Subscribed to market data streams (JetStream: ${this.useJetStream})`);
     } catch (error) {
       console.error("Failed to subscribe to market data:", error);
       throw error;
@@ -346,7 +380,7 @@ export class NatsStreamingService {
    * Handle connection errors and implement reconnection logic
    */
   private async handleConnectionError(error: any): Promise<void> {
-    this.isConnected = false;
+    this._isConnected = false;
     this.reconnectAttempts++;
 
     console.error(
@@ -376,8 +410,8 @@ export class NatsStreamingService {
   /**
    * Check if NATS is connected
    */
-  isConnected(): boolean {
-    return this.isConnected && this.connections.length > 0;
+  checkConnected(): boolean {
+    return this._isConnected && this.connections.length > 0;
   }
 
   /**
@@ -388,12 +422,14 @@ export class NatsStreamingService {
     connectionCount: number;
     reconnectAttempts: number;
     streams: string[];
+    useJetStream: boolean;
   } {
     return {
-      isConnected: this.isConnected,
+      isConnected: this._isConnected,
       connectionCount: this.connections.length,
       reconnectAttempts: this.reconnectAttempts,
       streams: Object.values(this.STREAMS),
+      useJetStream: this.useJetStream,
     };
   }
 
@@ -412,10 +448,45 @@ export class NatsStreamingService {
     }
 
     this.connections = [];
-    this.isConnected = false;
+    this._isConnected = false;
     this.jetStreamManager = undefined;
     this.jetStreamClient = undefined;
+    this.useJetStream = true; // Reset for next initialization
 
     console.log("NATS streaming service closed");
+  }
+
+  /**
+   * Process simple (non-JetStream) subscription messages
+   */
+  private async processSimpleSubscription(
+    subscription: any,
+    callback: (message: MarketDataMessage) => void,
+    filterSymbols?: string[],
+  ): Promise<void> {
+    try {
+      for await (const msg of subscription) {
+        try {
+          const marketDataMessage = this.jsonCodec.decode(
+            msg.data,
+          ) as MarketDataMessage;
+
+          // Apply symbol filter if provided
+          if (
+            filterSymbols &&
+            !filterSymbols.includes(marketDataMessage.symbol)
+          ) {
+            continue;
+          }
+
+          // Call the callback with the message
+          callback(marketDataMessage);
+        } catch (error) {
+          console.error("Error processing market data message:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error in subscription processing:", error);
+    }
   }
 }

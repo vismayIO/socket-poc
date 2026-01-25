@@ -453,7 +453,7 @@ export class HealthCheckService extends EventEmitter {
     try {
       const { natsStreamingService } =
         await import("../routes/websocket.routes");
-      const isConnected = natsStreamingService.isConnected();
+      const isConnected = natsStreamingService.checkConnected();
       const status = natsStreamingService.getConnectionStatus();
 
       return {

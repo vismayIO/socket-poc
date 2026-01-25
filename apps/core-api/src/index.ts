@@ -25,27 +25,17 @@ startAuthCalloutService().catch((error) => {
 // Initialize trade generation service
 const tradeGenerationService = new TradeGenerationService();
 
-// Start trade generation service
+// Start trade generation for default symbols
+const defaultSymbols = ["AAPL", "GOOGL", "TSLA", "MSFT", "AMZN"];
 tradeGenerationService
-  .initialize()
+  .startGeneration(defaultSymbols)
   .then(() => {
-    console.log("✅ Trade generation service initialized");
-
-    // Start generating trades for default symbols
-    const defaultSymbols = ["AAPL", "GOOGL", "TSLA", "MSFT", "AMZN"];
-    tradeGenerationService
-      .startGeneration(defaultSymbols)
-      .then(() => {
-        console.log(
-          `✅ Trade generation started for symbols: ${defaultSymbols.join(", ")}`,
-        );
-      })
-      .catch((error) => {
-        console.error("❌ Failed to start trade generation:", error);
-      });
+    console.log(
+      `✅ Trade generation started for symbols: ${defaultSymbols.join(", ")}`,
+    );
   })
-  .catch((error) => {
-    console.error("❌ Failed to initialize trade generation service:", error);
+  .catch((error: Error) => {
+    console.error("❌ Failed to start trade generation:", error);
   });
 
 const app = new Elysia()
