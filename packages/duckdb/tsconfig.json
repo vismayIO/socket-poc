@@ -24,7 +24,12 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
-    "composite": true,
-    "declarationMap": true
+    // Declaration generation
+    "composite": false,
+    "declarationMap": true,
+    "declaration": true,
+    "declarationDir": "./dist",
+    
   },
+  "include": ["src/**/*.ts"]
 }

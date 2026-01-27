@@ -3,8 +3,8 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "build": "bun tsdown",
-    "dev": "bun tsdown --watch"
+    "build": "bun tsup",
+    "dev": "bun tsup --watch"
   },
   "peerDependencies": {
     "typescript": "^5",
@@ -14,7 +14,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/react": "^19.2.9",
-    "tsdown": "^0.20.1"
+    "tsup": "^8.5.1"
   },
   "dependencies": {
     "react": "^19.2.4",
