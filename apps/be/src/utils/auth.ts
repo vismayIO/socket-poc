@@ -17,6 +17,10 @@ export const auth = betterAuth({
         provider: "postgresql",
     }),
     appName: "@socket-poc/be",
+    trustedOrigins: ["http://localhost:3000"],
+    emailAndPassword: {
+        enabled: true,
+    },
     plugins: [
         admin(),
         organization(),

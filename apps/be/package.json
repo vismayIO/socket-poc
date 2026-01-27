@@ -13,12 +13,12 @@
     "dev:start": "fastify start --port=3001 --ignore-watch=.ts$ -w -l info -P dist/app.js"
   },
   "devDependencies": {
-    "@types/node": "^24.0.8",
+    "@types/node": "^24.10.9",
     "c8": "^10.1.2",
     "ts-node": "^10.4.0",
     "concurrently": "^9.0.0",
     "fastify-tsconfig": "^3.0.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.3"
   },
   "dependencies": {
     "@fastify/autoload": "^6.0.0",
