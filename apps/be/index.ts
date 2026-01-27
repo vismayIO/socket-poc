@@ -1,7 +1,7 @@
-import { connect, StringCodec, type NatsConnection } from "nats";
 import { serve } from "bun";
-import { registerUser, authenticateUser, formatCredentialsFile } from "./auth";
-import { initDatabase, insertTradingData, getAllTradingData, getRecentTradingData } from "./db";
+import { connect, StringCodec, type NatsConnection } from "nats";
+import { authenticateUser, formatCredentialsFile, registerUser } from "./auth";
+import { getAllTradingData, getRecentTradingData, insertTradingData } from "./db";
 
 const NATS_URL = process.env.NATS_URL || "nats://localhost:4222";
 const PORT = parseInt(process.env.PORT || "3001");
@@ -34,13 +34,13 @@ async function initNATS() {
   }
 }
 
-// Publish trading data to NATS and store in DuckDB
+// Publish trading data to NATS and store in DB
 async function publishTradingData(data: TradingData) {
-  // Store in DuckDB
+  // Store in DB
   try {
     await insertTradingData(data);
   } catch (error) {
-    console.error("Error storing trading data in DuckDB:", error);
+    console.error("Error storing trading data in DB:", error);
   }
 
   // Publish to NATS
@@ -233,9 +233,6 @@ function startHTTPServer() {
 
 // Initialize and start
 async function start() {
-  // Initialize DuckDB first
-  await initDatabase();
-
   await initNATS();
   startTradingFeed();
   startHTTPServer();
