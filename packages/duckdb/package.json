@@ -1,23 +1,28 @@
 {
-  "name": "socket-duckdb",
-  "module": "index.ts",
-  "type": "module",
+  "name": "@socket-poc/duckdb",
+  "version": "0.0.1",
+  "description": "Utilities to make it easier to use duckdb-wasm in React apps.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "bun tsup",
-    "dev": "bun tsup --watch"
-  },
-  "peerDependencies": {
-    "typescript": "^5",
-    "react": "^19.2.4",
-    "@duckdb/duckdb-wasm": "^1.33.1-dev18.0"
-  },
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@types/react": "^19.2.9",
-    "tsup": "^8.5.1"
+    "dev": "bun tsup --watch",
+    "test": "vitest"
   },
   "dependencies": {
-    "react": "^19.2.4",
-    "@duckdb/duckdb-wasm": "^1.33.1-dev18.0"
+    "react-async-hook": "^4.0.0"
+  },
+  "devDependencies": {
+    "@duckdb/duckdb-wasm": "^1.32.0",
+    "@types/react": "^19.2.9",
+    "apache-arrow": "^15.0.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1"
+  },
+  "peerDependencies": {
+    "@duckdb/duckdb-wasm": "*",
+    "apache-arrow": ">=15.0.0",
+    "react": "^19.2.4"
   }
 }

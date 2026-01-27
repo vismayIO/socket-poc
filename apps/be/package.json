@@ -1,31 +1,50 @@
 {
-  "name": "be",
-  "module": "index.ts",
-  "type": "module",
-  "private": true,
+  "name": "@socket-poc/be",
+  "main": "app.ts",
+  "directories": {
+    "test": "test"
+  },
   "scripts": {
-    "start": "bun run index.ts",
-    "dev": "bun --hot index.ts"
+    "test": "bun run build:ts && tsc -p test/tsconfig.json && c8 node --test -r ts-node/register \"test/**/*.ts\"",
+    "start": "bun run build:ts && fastify start -l info dist/app.js",
+    "build:ts": "tsc",
+    "watch:ts": "tsc -w",
+    "dev": "bun run build:ts && concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"npm:watch:ts\" \"npm:dev:start\"",
+    "dev:start": "fastify start --port=3001 --ignore-watch=.ts$ -w -l info -P dist/app.js"
   },
   "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
+    "@types/node": "^24.0.8",
+    "c8": "^10.1.2",
+    "ts-node": "^10.4.0",
+    "concurrently": "^9.0.0",
+    "fastify-tsconfig": "^3.0.0",
+    "typescript": "~5.9.2"
   },
   "dependencies": {
+    "@fastify/autoload": "^6.0.0",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/sensible": "^6.0.0",
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.0.10",
     "@types/pg": "^8.16.0",
+    "better-auth": "^1.4.17",
     "dotenv": "^17.2.3",
     "duckdb": "^1.4.3",
+    "fastify": "^5.0.0",
+    "fastify-cli": "^7.4.1",
+    "fastify-plugin": "^5.0.0",
     "jsonwebtoken": "^9.0.3",
     "nats": "^2.20.0",
     "nats.ws": "^1.30.3",
     "nkeys.js": "^1.1.0",
     "pg": "^8.17.2",
     "prisma": "^7.3.0"
-  }
+  },
+  "version": "1.0.0",
+  "description": "A Proof of Concept demonstrating real-time data updates using NATS messaging system with Bun runtime.",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

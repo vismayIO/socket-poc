@@ -14,24 +14,193 @@ datasource db {
 }
 
 model User {
-  id            String   @id
-  username      String   @unique
-  password_hash String
-  nkey_seed     String
-  nkey_public   String
-  jwt           String
-  created_at    DateTime @default(now())
+  id              String       @id
+  name            String
+  email           String
+  emailVerified   Boolean      @default(false)
+  image           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  role            String?
+  banned          Boolean?     @default(false)
+  banReason       String?
+  banExpires      DateTime?
+  isAnonymous     Boolean?     @default(false)
+  username        String?
+  displayUsername String?
+  sessions        Session[]
+  accounts        Account[]
+  members         Member[]
+  invitations     Invitation[]
+  assets          Asset[]
+  trades          Trade[]
 
-  @@map("users")
+  @@unique([email])
+  @@unique([username])
+  @@map("user")
 }
 
-model TradingData {
-  id         Int      @id @default(autoincrement())
-  timestamp  BigInt
-  price      Float
-  volume     Int
-  symbol     String
-  created_at DateTime @default(now())
+model Session {
+  id                   String   @id
+  expiresAt            DateTime
+  token                String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  ipAddress            String?
+  userAgent            String?
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  impersonatedBy       String?
+  activeOrganizationId String?
 
-  @@map("trading_data")
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Organization {
+  id          String       @id
+  name        String
+  slug        String
+  logo        String?
+  createdAt   DateTime
+  metadata    String?
+  members     Member[]
+  invitations Invitation[]
+
+  @@unique([slug])
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("member")
+  createdAt      DateTime
+
+  @@index([organizationId])
+  @@index([userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String       @default("pending")
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitation")
+}
+
+model Jwks {
+  id         String    @id
+  publicKey  String
+  privateKey String
+  createdAt  DateTime
+  expiresAt  DateTime?
+
+  @@map("jwks")
+}
+
+model Stock {
+  id       String @id @default(cuid())
+  symbol   String @unique
+  name     String
+  exchange String
+  currency String @default("USD")
+
+  currentPrice Decimal @db.Decimal(12, 4)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assets Asset[]
+  trades Trade[]
+
+  @@map("stock")
+}
+
+model Asset {
+  id String @id @default(cuid())
+
+  userId  String
+  stockId String
+
+  quantity Decimal @db.Decimal(18, 6)
+  avgPrice Decimal @db.Decimal(12, 4)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id])
+  stock Stock @relation(fields: [stockId], references: [id])
+
+  @@unique([userId, stockId])
+  @@map("assest")
+}
+
+model Trade {
+  id String @id @default(cuid())
+
+  userId  String
+  stockId String
+
+  type     TradeType
+  quantity Decimal   @db.Decimal(18, 6)
+  price    Decimal   @db.Decimal(12, 4)
+
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  stock Stock @relation(fields: [stockId], references: [id])
+
+  @@map("trade")
+}
+
+enum TradeType {
+  BUY
+  SELL
 }

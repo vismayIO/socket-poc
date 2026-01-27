@@ -16,7 +16,7 @@ export const exportArrow = async (
   db: AsyncDuckDB,
   tableName: string,
   filename?: string,
-) => {
+): Promise<File> => {
   filename = filename || getExportedFilename(tableName, "arrow");
 
   const arrow = await runQuery(db, `SELECT * FROM '${tableName}'`);
@@ -33,7 +33,7 @@ export const exportCsv = async (
   tableName: string,
   filename?: string,
   delimiter = ",",
-) => {
+): Promise<File> => {
   filename = filename || getExportedFilename(tableName, "csv");
 
   const tempFile = getTempFilename();
@@ -45,7 +45,7 @@ export const exportCsv = async (
   const buffer = await db.copyFileToBuffer(tempFile);
   await db.dropFile(tempFile);
 
-  return new File([buffer], filename, { type: CSV_MIME_TYPE });
+  return new File([buffer as BlobPart], filename, { type: CSV_MIME_TYPE });
 };
 
 /**
@@ -58,7 +58,7 @@ export const exportParquet = async (
   tableName: string,
   filename?: string,
   compression: "uncompressed" | "snappy" | "gzip" | "zstd" = "zstd",
-) => {
+): Promise<File> => {
   filename = filename || getExportedFilename(tableName, "parquet");
 
   const tempFile = getTempFilename();
@@ -70,7 +70,7 @@ export const exportParquet = async (
   const buffer = await db.copyFileToBuffer(tempFile);
   await db.dropFile(tempFile);
 
-  return new File([buffer], filename, { type: PARQUET_MIME_TYPE });
+  return new File([buffer as BlobPart], filename, { type: PARQUET_MIME_TYPE });
 };
 
 /**

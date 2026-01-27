@@ -11,7 +11,6 @@ import { logElapsedTime } from "../util/perf";
 import { getTempFilename } from "../util/tempfile";
 import { arrayBufferToArrow, isArrowFile } from "./arrow";
 import { isParquetFile } from "./parquet";
-import type { BunFile } from "bun";
 
 export class InsertFileError extends Error {
   title: string;
@@ -29,10 +28,10 @@ export class InsertFileError extends Error {
  */
 export const insertFile = async (
   db: AsyncDuckDB,
-  file: BunFile,
+  file: File,
   tableName?: string,
   debug: boolean = false,
-) => {
+): Promise<void> => {
   const start = performance.now();
   await _insertFile(db, file, tableName);
 
@@ -46,18 +45,18 @@ export const insertFile = async (
  */
 const _insertFile = async (
   db: AsyncDuckDB,
-  file: BunFile,
+  file: File,
   tableName?: string,
-) => {
+): Promise<void> => {
   try {
     tableName = tableName || file.name;
-    if(!tableName) return
 
     // Try Parquet first.
     if (await isParquetFile(file)) {
       await insertParquet(db, file, tableName);
       return;
     }
+
     // Then Arrow.
     if (await isArrowFile(file)) {
       await insertArrow(db, file, tableName);
@@ -65,7 +64,7 @@ const _insertFile = async (
     }
 
     // Next, try matching the file extension.
-    const filename = file.name!.toLowerCase();
+    const filename = file.name.toLowerCase();
     const extension = filename.split(".").at(-1);
     switch (extension) {
       case "arrow":
@@ -99,9 +98,9 @@ const _insertFile = async (
  */
 export const insertCSV = async (
   db: AsyncDuckDB,
-  file: BunFile,
+  file: File,
   tableName: string,
-) => {
+): Promise<void> => {
   try {
     const text = await file.text();
 
@@ -122,7 +121,7 @@ export const insertCSV = async (
   } catch (e) {
     console.error(e);
     // The file looks like a CSV, but parsing failed.
-    if (file.type === "text/csv" || file.name!.toLowerCase().endsWith(".csv")) {
+    if (file.type === "text/csv" || file.name.toLowerCase().endsWith(".csv")) {
       throw new InsertFileError(
         "CSV import failed",
         "Sorry, we couldn't import that CSV. Please try again.",
@@ -139,9 +138,9 @@ export const insertCSV = async (
  */
 export const insertArrow = async (
   db: AsyncDuckDB,
-  file: BunFile,
+  file: File,
   tableName: string,
-) => {
+): Promise<void> => {
   try {
     const buffer = await file.arrayBuffer();
     const arrow = arrayBufferToArrow(buffer);
@@ -162,9 +161,9 @@ export const insertArrowTable = async (
   db: AsyncDuckDB,
   arrow: Arrow,
   tableName: string,
-) => {
+): Promise<void> => {
   const conn = await db.connect();
-  await conn.insertArrowTable(arrow, {
+  await conn.insertArrowTable(arrow as any, {
     name: tableName,
   });
   await conn.close();
@@ -175,9 +174,9 @@ export const insertArrowTable = async (
  */
 export const insertParquet = async (
   db: AsyncDuckDB,
-  file: BunFile,
+  file: File,
   tableName: string,
-) => {
+): Promise<void> => {
   try {
     const tempFile = getTempFilename() + ".parquet";
     await db.registerFileHandle(

@@ -1,5 +1,5 @@
 import * as duckdb from "@duckdb/duckdb-wasm";
-import { AsyncDuckDB,type DuckDBConfig } from "@duckdb/duckdb-wasm";
+import { AsyncDuckDB, type DuckDBConfig } from "@duckdb/duckdb-wasm";
 import { logElapsedTime } from "../util/perf";
 
 export let DEBUG: boolean | undefined;
@@ -15,7 +15,7 @@ let DB: Promise<AsyncDuckDB> | undefined;
 export default async function initializeDuckDb(options?: {
   debug?: boolean;
   config?: DuckDBConfig;
-}) {
+}): Promise<AsyncDuckDB> {
   const { debug = false, config } = options || {};
   DEBUG = debug;
 
@@ -28,7 +28,7 @@ export default async function initializeDuckDb(options?: {
 /**
  * Initialize DuckDB with a browser-specific Wasm bundle.
  */
-const _initializeDuckDb = async (config?: DuckDBConfig) => {
+const _initializeDuckDb = async (config?: DuckDBConfig): Promise<AsyncDuckDB> => {
   const start = performance.now();
 
   // Select a bundle based on browser checks
@@ -76,7 +76,7 @@ const _initializeDuckDb = async (config?: DuckDBConfig) => {
  * Typically `useDuckDB` is used in React components instead, but this
  * method provides access outside of React contexts.
  */
-export const getDuckDB = async () => {
+export const getDuckDB = async (): Promise<AsyncDuckDB> => {
   if (DB) {
     return DB;
   } else {

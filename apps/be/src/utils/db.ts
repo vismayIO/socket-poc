@@ -1,5 +1,5 @@
-import { type TradingData, type User } from "./generated/prisma/client";
-import { prisma } from "./uitls/prisma";
+import { type TradingData, type User } from "../../generated/prisma/client";
+import { prisma } from "./prisma";
 
 /**
  * Initialize Database (Connect Prisma)

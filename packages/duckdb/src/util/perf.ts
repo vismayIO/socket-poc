@@ -10,7 +10,7 @@ const formatElapsedTime = (
   label: string,
   start: number,
   end: number | undefined = undefined,
-) => {
+): string => {
   const endTime = end ?? performance.now();
   const elapsed = endTime - start;
 

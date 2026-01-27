@@ -1,8 +1,7 @@
-import { Table as Arrow, tableFromIPC, tableToIPC, type TypeMap } from "apache-arrow";
+import { Table as Arrow, tableFromIPC, tableToIPC } from "apache-arrow";
 export type { Table as Arrow } from "apache-arrow";
 
-import type { BunFile } from "bun";
-import type { JSONObject } from "../util/types";
+import { type JSONObject } from "../util/types";
 
 export const ARROW_MIME_TYPE = "application/vnd.apache.arrow.file";
 
@@ -14,12 +13,12 @@ export const isArrow = (obj: unknown): obj is Arrow => obj instanceof Arrow;
 /**
  * Is a given File a valid Arrow IPC file?
  */
-export const isArrowFile = async (file: BunFile) => {
+export const isArrowFile = async (file: File): Promise<boolean> => {
   try {
     const buffer = await file.arrayBuffer();
     arrayBufferToArrow(buffer);
     return true;
-  } catch {}
+  } catch { }
 
   return false;
 };
@@ -27,23 +26,23 @@ export const isArrowFile = async (file: BunFile) => {
 /**
  * Load an Arrow table from an IPC file, as an ArrayBuffer.
  */
-export const arrayBufferToArrow = <T extends TypeMap = any>(arrayBuffer: ArrayBuffer) => {
-  const arrow = tableFromIPC<T>(new Uint8Array(arrayBuffer));
+export const arrayBufferToArrow = (arrayBuffer: ArrayBuffer): Arrow => {
+  const arrow = tableFromIPC(new Uint8Array(arrayBuffer));
   return arrow;
 };
 
 /**
  * Convert an Arrow to an IPC file, as an ArrayBuffer.
  */
-export const arrowToArrayBuffer = (arrow: Arrow) => {
+export const arrowToArrayBuffer = (arrow: Arrow): ArrayBuffer => {
   const array = tableToIPC(arrow, "file");
-  return array.buffer;
+  return array.buffer as ArrayBuffer;
 };
 
 /**
  * Convert an Apache Arrow table to an array of JSON row objects.
  */
-export function arrowToJSON(arrow: Arrow) {
+export function arrowToJSON(arrow: Arrow): Record<string, JSONObject>[] {
   const rows: Record<string, JSONObject>[] = [];
   for (let i = 0; i < arrow.numRows; i++) {
     const row = arrow.get(i);

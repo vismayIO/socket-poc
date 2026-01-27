@@ -1,14 +1,30 @@
+import { Table as Arrow } from "apache-arrow";
+import { useAsync } from "react-async-hook";
 
-import { use, useCallback } from "react";
 import { runQuery } from "../util/runQuery";
 import { useDuckDb } from "./useDuckDb";
 
+/**
+ * Execute a SQL query and return the result as Arrow.
+ *
+ * Wait for DuckDB to initialize if necessary.
+ *
+ * If sql is undefined, returns undefined.
+ */
 export const useDuckDbQuery = (
   sql: string | undefined,
-) => {
-  const db = useDuckDb();
+): {
+  arrow: Arrow | undefined;
+  loading: boolean;
+  error: Error | undefined;
+} => {
+  const { db } = useDuckDb();
 
-  const dbQuery  = useCallback(async () => {
+  const {
+    result: arrow,
+    loading,
+    error,
+  } = useAsync(async () => {
     if (!db || !sql) {
       return undefined;
     }
@@ -17,7 +33,5 @@ export const useDuckDbQuery = (
     return arrow;
   }, [db, sql]);
 
-  const arrow = use(dbQuery());
-
-  return arrow;
+  return { arrow, loading, error };
 };

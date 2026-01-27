@@ -1,4 +1,4 @@
-import { defineConfig } from 'tsdown'
+import { defineConfig } from 'tsup'
 
 export default defineConfig({
     entry: ['./src/index.ts'],
@@ -6,9 +6,10 @@ export default defineConfig({
     platform: "browser",
     treeshake: true,
     dts: true,
+    clean: true,
     external: [
         "@duckdb/duckdb-wasm",
         "react",
-        "bun"
+        "bun",
     ],
 })

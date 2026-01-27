@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { TradingChart } from "./components/TradingChart";
 import { Auth } from "./components/Auth";
+import { TradingChart } from "./components/TradingChart";
 import "./index.css";
 
 export function App() {
@@ -11,6 +11,7 @@ export function App() {
     userId: string;
     credsFile?: string;
   } | null>(null);
+
 
   const handleAuthenticated = (creds: {
     jwt: string;

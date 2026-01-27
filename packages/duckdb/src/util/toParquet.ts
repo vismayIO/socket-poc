@@ -1,6 +1,5 @@
 import { AsyncDuckDB } from "@duckdb/duckdb-wasm";
 
-import type { BunFile } from "bun";
 import {
   exportParquet,
   insertArrow,
@@ -17,7 +16,7 @@ import { getTempFilename } from "./tempfile";
  *
  * TODO: Remove this (move it elsewhere).
  */
-export async function toParquet(db: AsyncDuckDB, file: BunFile) {
+export async function toParquet(db: AsyncDuckDB, file: File) {
   if (await isParquetFile(file)) {
     return file;
   }
