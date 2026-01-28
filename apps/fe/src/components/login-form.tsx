@@ -14,22 +14,22 @@ import {
 import { useAppForm } from "@/hooks/form"
 import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { toast } from "sonner"
 import { z } from "zod"
 
-
-
 const schema = z.object({
-  email: z.email().min(1, 'Email is Require'),
+  email: z.email().min(1, 'Email is required'),
   password: z.string().min(1, 'Password is required'),
 })
-
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const navigate = useNavigate()
+  const search = useSearch({ from: '/login' })
+
   const form = useAppForm({
     defaultValues: {
       email: '',
@@ -39,11 +39,24 @@ export function LoginForm({
       onBlur: schema,
     },
     onSubmit: async ({ value: { email, password } }) => {
-      await authClient.signIn.email({
-        email, password, fetchOptions: {
-          onSuccess: () => navigate({ to: "/" })
-        }
-      })
+      try {
+        await authClient.signIn.email({
+          email,
+          password,
+          fetchOptions: {
+            onSuccess: () => {
+              toast.success('Logged in successfully!')
+              navigate({ to: search.redirect || '/dashboard' })
+            },
+            onError: (ctx) => {
+              toast.error(`Login failed: ${ctx.error.message}`)
+            }
+          }
+        })
+      } catch (error) {
+        console.error('Login error:', error)
+        toast.error(`Login failed: ${(error as Error).message}`)
+      }
     },
   })
 

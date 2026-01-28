@@ -1,58 +1,18 @@
-import * as React from 'react'
+import { type AuthClient } from '@/lib/auth-client';
+import * as React from 'react';
 
+const AuthContext = React.createContext<ReturnType<AuthClient['useSession']> | null>(null)
 
-export interface AuthContext {
-    isAuthenticated: boolean
-    login: (username: string) => Promise<void>
-    logout: () => Promise<void>
-    user: string | null
-}
+export function AuthProvider({ children, authClient }: { children: React.ReactNode; authClient: AuthClient }) {
+    const session = authClient.useSession()
 
-const AuthContext = React.createContext<AuthContext | null>(null)
-
-const key = 'tanstack.auth.user'
-
-function getStoredUser() {
-    return localStorage.getItem(key)
-}
-
-function setStoredUser(user: string | null) {
-    if (user) {
-        localStorage.setItem(key, user)
-    } else {
-        localStorage.removeItem(key)
+    if (session.error) {
+        authClient.signOut()
     }
-}
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [user, setUser] = React.useState<string | null>(getStoredUser())
-    const isAuthenticated = !!user
-
-    const logout = React.useCallback(async () => {
-        setStoredUser(null)
-        setUser(null)
-    }, [])
-
-    const login = React.useCallback(async (username: string) => {
-        setStoredUser(username)
-        setUser(username)
-    }, [])
-
-    React.useEffect(() => {
-        setUser(getStoredUser())
-    }, [])
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+        <AuthContext.Provider value={session}>
             {children}
         </AuthContext.Provider>
     )
-}
-
-export function useAuth() {
-    const context = React.useContext(AuthContext)
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider')
-    }
-    return context
 }

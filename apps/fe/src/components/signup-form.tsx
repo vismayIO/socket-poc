@@ -40,13 +40,28 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
       onSubmit: schema,
     },
     onSubmit: async ({ value: { email, name, password } }) => {
-      await authClient.signUp.email({
-        email, name, password, fetchOptions: {
-          onSuccess: () => navigate({ to: "/" })
-        }
-      })
+      try {
+        await authClient.signUp.email({
+          email,
+          name,
+          password,
+          fetchOptions: {
+            onSuccess: () => {
+              navigate({ to: "/dashboard" })
+            },
+            onError: (ctx) => {
+              console.error('Signup error:', ctx.error)
+              // You can add toast notification here
+            }
+          }
+        })
+      } catch (error) {
+        console.error('Signup error:', error)
+        // You can add toast notification here
+      }
     },
   })
+
   return (
     <Card {...props}>
       <CardHeader>
