@@ -12,7 +12,7 @@ export const runQuery = async <T extends {
 } = any>(db: AsyncDuckDB, sql: string): Promise<Table<T>> => {
   const start = performance.now();
   const conn = await db.connect();
-  const arrow = await conn.query<T>(sql);
+  const arrow = await conn.query(sql);
   await conn.close();
 
   DEBUG && logElapsedTime(`Run query: ${sql}`, start);

@@ -14,7 +14,7 @@ import {
 import { useAppForm } from "@/hooks/form"
 import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 
 
@@ -29,6 +29,7 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const navigate = useNavigate()
   const form = useAppForm({
     defaultValues: {
       email: '',
@@ -38,7 +39,11 @@ export function LoginForm({
       onBlur: schema,
     },
     onSubmit: async ({ value: { email, password } }) => {
-      await authClient.signIn.email({ email, password })
+      await authClient.signIn.email({
+        email, password, fetchOptions: {
+          onSuccess: () => navigate({ to: "/" })
+        }
+      })
     },
   })
 

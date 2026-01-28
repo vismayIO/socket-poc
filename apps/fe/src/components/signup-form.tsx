@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/field"
 import { useAppForm } from "@/hooks/form"
 import { authClient } from "@/lib/auth-client"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import type React from "react"
 import z from "zod"
 
@@ -24,10 +24,11 @@ const schema = z.object({
   confirmPassword: z.string().min(1, 'Confirm Password is required'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
-  path: ["confirmPassword"], // Sets the error to appear on this field
+  path: ["confirmPassword"]
 });
 
 export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
+  const navigate = useNavigate()
   const form = useAppForm({
     defaultValues: {
       email: '',
@@ -36,10 +37,14 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
       confirmPassword: '',
     },
     validators: {
-      onBlur: schema,
+      onSubmit: schema,
     },
     onSubmit: async ({ value: { email, name, password } }) => {
-      await authClient.signUp.email({ email, name, password })
+      await authClient.signUp.email({
+        email, name, password, fetchOptions: {
+          onSuccess: () => navigate({ to: "/" })
+        }
+      })
     },
   })
   return (
